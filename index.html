@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Contagem</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>🔢 Contagem</h1>
+
+        <p class="subtitulo">
+            Escolha seu número de 0 a 100
+        </p>
+
+        <div class="formulario">
+
+            <input
+                id="nome"
+                type="text"
+                placeholder="Seu nome"
+                maxlength="50"
+            >
+
+            <input
+                id="numero"
+                type="number"
+                min="0"
+                max="100"
+                placeholder="Número"
+            >
+
+            <button onclick="escolherNumero()">
+                Escolher
+            </button>
+
+        </div>
+
+        <p id="mensagem"></p>
+
+        <h2>Números escolhidos</h2>
+
+        <div id="lista">
+            Carregando...
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
