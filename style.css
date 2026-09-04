@@ -27,10 +27,6 @@ h1 {
     margin-bottom: 10px;
 }
 
-h2 {
-    margin-top: 30px;
-}
-
 .subtitulo {
     text-align: center;
 
@@ -43,7 +39,14 @@ h2 {
     justify-content: center;
 
     margin-top: 25px;
-    margin-bottom: 20px;
+}
+
+#usuario-info {
+    text-align: center;
+
+    color: #aaa;
+
+    margin-top: 12px;
 }
 
 .formulario {
@@ -71,7 +74,7 @@ input {
 }
 
 input:disabled {
-    background: #ddd;
+    background: #d8d8d8;
 
     color: #333;
 }
@@ -95,9 +98,17 @@ button {
 }
 
 button:hover {
-    transform: translateY(-1px);
+    opacity: 0.8;
 
-    opacity: 0.85;
+    transform: translateY(-1px);
+}
+
+button:disabled {
+    opacity: 0.4;
+
+    cursor: not-allowed;
+
+    transform: none;
 }
 
 #mensagem {
@@ -111,15 +122,17 @@ button:hover {
 }
 
 #mensagem-topo {
-    display: none;
-
     width: 100%;
 
-    padding: 14px 20px;
+    padding: 15px 20px;
 
-    margin-bottom: 20px;
+    margin: -30px -30px 30px -30px;
+
+    width: calc(100% + 60px);
 
     text-align: center;
+
+    font-size: 17px;
 
     font-weight: bold;
 
@@ -136,11 +149,12 @@ button:hover {
     display: flex;
 
     justify-content: space-between;
+
     align-items: center;
 
-    padding: 12px 15px;
+    padding: 13px 15px;
 
-    margin-bottom: 5px;
+    margin-bottom: 6px;
 
     background: #222;
 
@@ -192,6 +206,8 @@ button:hover {
 
 #painel-admin h2 {
     margin-top: 0;
+
+    margin-bottom: 20px;
 }
 
 .admin-form {
@@ -215,8 +231,6 @@ button:hover {
 }
 
 .admin-form button {
-    background: #ddd;
-
     white-space: nowrap;
 }
 
@@ -242,11 +256,17 @@ button:hover {
         flex-direction: column;
     }
 
-    button {
+    .admin-form button {
         width: 100%;
     }
 
     .item {
         padding: 14px;
+    }
+
+    #mensagem-topo {
+        margin: -20px -20px 20px -20px;
+
+        width: calc(100% + 40px);
     }
 }
