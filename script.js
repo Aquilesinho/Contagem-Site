@@ -3,101 +3,88 @@ const API = "https://contagem-92rm.onrender.com";
 const GOOGLE_CLIENT_ID =
     "748439688946-auplni3i67796q1naegduagd1ikrte31.apps.googleusercontent.com";
 
-const EMAIL_ADMIN = "aquiles.mm.enzo@gmail.com";
+const ADMIN_EMAIL = "aquiles.mm.enzo@gmail.com";
 
-let usuarioGoogle = null;
+let googleToken = null;
+let usuario = null;
 
 
 // ============================================================
-// GOOGLE LOGIN
+// GOOGLE
 // ============================================================
 
-function carregarGoogle() {
-    const script = document.createElement("script");
-
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-
-    script.onload = function() {
-        google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: receberLogin
-        });
-
-        criarLogin();
-    };
-
-    document.head.appendChild(script);
-}
-
-
-function criarLogin() {
-    let login = document.getElementById("login-google");
-
-    if (!login) {
-        login = document.createElement("div");
-        login.id = "login-google";
-
-        const container = document.querySelector(".container");
-
-        container.insertBefore(
-            login,
-            document.querySelector(".formulario")
-        );
+function iniciarGoogle() {
+    if (!window.google || !google.accounts) {
+        setTimeout(iniciarGoogle, 200);
+        return;
     }
 
-    login.innerHTML = "";
+    google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: loginGoogle
+    });
+
+    const login = document.getElementById("login-google");
 
     google.accounts.id.renderButton(
         login,
         {
-            theme: "filled_black",
+            theme: "outline",
             size: "large",
             text: "signin_with",
-            shape: "rectangular"
+            shape: "rectangular",
+            width: 300
         }
     );
 }
 
 
-async function receberLogin(resposta) {
+async function loginGoogle(resposta) {
+    googleToken = resposta.credential;
+
     try {
-        const partes = resposta.credential.split(".");
-        const dados = JSON.parse(
-            atob(
-                partes[1]
-                    .replace(/-/g, "+")
-                    .replace(/_/g, "/")
-            )
+        const respostaServidor = await fetch(
+            API + "/api/eu",
+            {
+                headers: {
+                    "Authorization": "Bearer " + googleToken
+                }
+            }
         );
 
-        usuarioGoogle = {
-            email: dados.email,
-            nome: dados.name,
-            picture: dados.picture,
-            credential: resposta.credential
-        };
+        const dados = await respostaServidor.json();
+
+        if (!respostaServidor.ok) {
+            throw new Error(
+                dados.erro || "Falha no login."
+            );
+        }
+
+        usuario = dados;
 
         atualizarInterface();
-
-        const mensagem = document.getElementById("mensagem");
-
-        if (mensagem) {
-            mensagem.textContent =
-                "Login realizado como " + dados.name + ".";
-        }
 
     } catch (erro) {
         console.error(erro);
 
-        const mensagem = document.getElementById("mensagem");
+        googleToken = null;
+        usuario = null;
 
-        if (mensagem) {
-            mensagem.textContent =
-                "Não foi possível fazer login com o Google.";
-        }
+        document.getElementById("mensagem").textContent =
+            "Não foi possível entrar com o Google.";
     }
+}
+
+
+// ============================================================
+// REQUISIÇÃO AUTENTICADA
+// ============================================================
+
+function headersAutenticados() {
+    return {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + googleToken
+    };
 }
 
 
@@ -106,64 +93,47 @@ async function receberLogin(resposta) {
 // ============================================================
 
 function atualizarInterface() {
-    const formulario = document.querySelector(".formulario");
+    const formulario =
+        document.querySelector(".formulario");
 
-    if (!formulario) {
-        return;
-    }
+    const login =
+        document.getElementById("login-google");
 
-    if (!usuarioGoogle) {
+    const usuarioInfo =
+        document.getElementById("usuario-info");
+
+    if (!usuario) {
         formulario.style.display = "none";
         return;
     }
 
     formulario.style.display = "flex";
 
-    const nome = document.getElementById("nome");
+    usuarioInfo.textContent =
+        "Entrou como " + usuario.nome;
 
-    if (nome) {
-        nome.value = usuarioGoogle.nome;
-        nome.disabled = true;
+    const nomeInput =
+        document.getElementById("nome");
+
+    nomeInput.value = usuario.nome;
+    nomeInput.disabled = true;
+
+    if (usuario.numero !== null) {
+        document.getElementById("numero").disabled = true;
+
+        document.querySelector(
+            ".formulario button"
+        ).disabled = true;
+
+        document.getElementById("mensagem").textContent =
+            "Você já escolheu o número " +
+            usuario.numero +
+            ".";
     }
 
-    criarPainelAdmin();
-}
-
-
-function criarPainelAdmin() {
-    let painel = document.getElementById("painel-admin");
-
-    if (painel) {
-        painel.remove();
+    if (usuario.admin) {
+        criarPainelAdmin();
     }
-
-    if (!usuarioGoogle) {
-        return;
-    }
-
-    if (usuarioGoogle.email.toLowerCase() !== EMAIL_ADMIN.toLowerCase()) {
-        return;
-    }
-
-    painel = document.createElement("div");
-    painel.id = "painel-admin";
-
-    painel.innerHTML =
-        '<h2>⚙️ Administração</h2>' +
-        '<div class="admin-form">' +
-        '<input id="admin-mensagem" type="text" maxlength="200" placeholder="Mensagem para aparecer no topo">' +
-        '<button onclick="enviarMensagemAdmin()">Enviar mensagem</button>' +
-        '</div>' +
-        '<div class="admin-form">' +
-        '<input id="admin-bloqueio" type="text" maxlength="50" placeholder="Nome para bloquear">' +
-        '<button onclick="bloquearNome()">Bloquear nome</button>' +
-        '</div>' +
-        '<div class="admin-form">' +
-        '<input id="admin-excluir" type="number" min="0" max="100" placeholder="Número para excluir">' +
-        '<button onclick="excluirNumero()">Excluir número</button>' +
-        '</div>';
-
-    document.querySelector(".container").appendChild(painel);
 }
 
 
@@ -172,11 +142,8 @@ function criarPainelAdmin() {
 // ============================================================
 
 async function carregarLista() {
-    const lista = document.getElementById("lista");
-
-    if (!lista) {
-        return;
-    }
+    const lista =
+        document.getElementById("lista");
 
     try {
         const resposta = await fetch(
@@ -191,42 +158,56 @@ async function carregarLista() {
 
         lista.innerHTML = "";
 
-        const numeros = Object.keys(dados)
-            .map(Number)
-            .sort(function(a, b) {
-                return a - b;
-            });
+        const numeros =
+            dados.numeros || {};
 
-        if (numeros.length === 0) {
+        const chaves =
+            Object.keys(numeros)
+                .map(Number)
+                .sort(function(a, b) {
+                    return a - b;
+                });
+
+        if (chaves.length === 0) {
             lista.innerHTML =
                 "<p>Ninguém escolheu um número ainda.</p>";
 
             return;
         }
 
-        for (const numero of numeros) {
-            const item = document.createElement("div");
+        for (const numero of chaves) {
+            const item =
+                document.createElement("div");
 
             item.className = "item";
 
             const numeroElemento =
                 document.createElement("span");
 
-            numeroElemento.className = "numero";
-            numeroElemento.textContent = numero;
+            numeroElemento.className =
+                "numero";
+
+            numeroElemento.textContent =
+                numero;
 
             const nomeElemento =
                 document.createElement("span");
 
-            nomeElemento.className = "nome";
+            nomeElemento.className =
+                "nome";
+
             nomeElemento.textContent =
-                dados[String(numero)];
+                numeros[String(numero)];
 
             item.appendChild(numeroElemento);
             item.appendChild(nomeElemento);
 
             lista.appendChild(item);
         }
+
+        mostrarMensagemTopo(
+            dados.mensagem || ""
+        );
 
     } catch (erro) {
         console.error(erro);
@@ -238,46 +219,42 @@ async function carregarLista() {
 
 
 // ============================================================
-// MENSAGEM DO TOPO
+// MENSAGEM NO TOPO
 // ============================================================
 
-async function carregarMensagem() {
-    let topo = document.getElementById("mensagem-topo");
-
-    if (!topo) {
-        topo = document.createElement("div");
-        topo.id = "mensagem-topo";
-
-        document.body.prepend(topo);
-    }
-
-    try {
-        const resposta = await fetch(
-            API + "/api/mensagem"
+function mostrarMensagemTopo(mensagem) {
+    let elemento =
+        document.getElementById(
+            "mensagem-topo"
         );
 
-        if (!resposta.ok) {
-            topo.style.display = "none";
-            return;
-        }
+    if (!elemento) {
+        elemento =
+            document.createElement("div");
 
-        const dados = await resposta.json();
+        elemento.id =
+            "mensagem-topo";
 
-        if (dados.mensagem) {
-            topo.textContent = dados.mensagem;
-            topo.style.display = "block";
-        } else {
-            topo.style.display = "none";
-        }
-
-    } catch (erro) {
-        topo.style.display = "none";
+        document.body.prepend(elemento);
     }
+
+    if (!mensagem) {
+        elemento.style.display =
+            "none";
+
+        return;
+    }
+
+    elemento.textContent =
+        mensagem;
+
+    elemento.style.display =
+        "block";
 }
 
 
 // ============================================================
-// ESCOLHER NÚMERO
+// ESCOLHER
 // ============================================================
 
 async function escolherNumero() {
@@ -287,14 +264,22 @@ async function escolherNumero() {
     const mensagem =
         document.getElementById("mensagem");
 
-    if (!usuarioGoogle) {
+    if (!googleToken || !usuario) {
         mensagem.textContent =
-            "Faça login com o Google primeiro.";
+            "Entre com o Google primeiro.";
 
         return;
     }
 
-    const numero = Number(numeroInput.value);
+    if (usuario.numero !== null) {
+        mensagem.textContent =
+            "Você já escolheu um número.";
+
+        return;
+    }
+
+    const numero =
+        Number(numeroInput.value);
 
     if (
         !Number.isInteger(numero) ||
@@ -307,7 +292,8 @@ async function escolherNumero() {
         return;
     }
 
-    mensagem.textContent = "Escolhendo...";
+    mensagem.textContent =
+        "Escolhendo...";
 
     try {
         const resposta = await fetch(
@@ -315,32 +301,39 @@ async function escolherNumero() {
             {
                 method: "POST",
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers:
+                    headersAutenticados(),
 
                 body: JSON.stringify({
-                    numero: numero,
-                    credential: usuarioGoogle.credential
+                    numero: numero
                 })
             }
         );
 
-        const dados = await resposta.json();
+        const dados =
+            await resposta.json();
 
         if (!resposta.ok) {
             mensagem.textContent =
-                dados.erro || "Não foi possível escolher.";
+                dados.erro ||
+                "Não foi possível escolher.";
 
             return;
         }
 
+        usuario.numero =
+            dados.numero;
+
         mensagem.textContent =
             "Número " +
-            numero +
+            dados.numero +
             " escolhido com sucesso!";
 
-        numeroInput.value = "";
+        numeroInput.disabled = true;
+
+        document.querySelector(
+            ".formulario button"
+        ).disabled = true;
 
         carregarLista();
 
@@ -354,14 +347,81 @@ async function escolherNumero() {
 
 
 // ============================================================
+// PAINEL ADMIN
+// ============================================================
+
+function criarPainelAdmin() {
+    if (
+        document.getElementById(
+            "painel-admin"
+        )
+    ) {
+        return;
+    }
+
+    const painel =
+        document.createElement("div");
+
+    painel.id =
+        "painel-admin";
+
+    painel.innerHTML =
+        "<h2>⚙️ Administração</h2>" +
+
+        "<div class='admin-form'>" +
+        "<input id='admin-mensagem' " +
+        "type='text' maxlength='200' " +
+        "placeholder='Mensagem para aparecer no topo'>" +
+        "<button onclick='enviarMensagemAdmin()'>" +
+        "Enviar mensagem" +
+        "</button>" +
+        "</div>" +
+
+        "<div class='admin-form'>" +
+        "<input id='admin-bloqueio' " +
+        "type='text' maxlength='50' " +
+        "placeholder='Nome para bloquear'>" +
+        "<button onclick='bloquearNome()'>" +
+        "Bloquear nome" +
+        "</button>" +
+        "</div>" +
+
+        "<div class='admin-form'>" +
+        "<input id='admin-desbloqueio' " +
+        "type='text' maxlength='50' " +
+        "placeholder='Nome para desbloquear'>" +
+        "<button onclick='desbloquearNome()'>" +
+        "Desbloquear nome" +
+        "</button>" +
+        "</div>" +
+
+        "<div class='admin-form'>" +
+        "<input id='admin-excluir' " +
+        "type='number' min='0' max='100' " +
+        "placeholder='Número para excluir'>" +
+        "<button onclick='excluirNumero()'>" +
+        "Excluir número" +
+        "</button>" +
+        "</div>";
+
+    document
+        .querySelector(".container")
+        .appendChild(painel);
+}
+
+
+// ============================================================
 // ADMIN — MENSAGEM
 // ============================================================
 
 async function enviarMensagemAdmin() {
     const input =
-        document.getElementById("admin-mensagem");
+        document.getElementById(
+            "admin-mensagem"
+        );
 
-    const mensagem = input.value.trim();
+    const mensagem =
+        input.value.trim();
 
     if (!mensagem) {
         return;
@@ -373,43 +433,53 @@ async function enviarMensagemAdmin() {
             {
                 method: "POST",
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers:
+                    headersAutenticados(),
 
                 body: JSON.stringify({
-                    mensagem: mensagem,
-                    credential: usuarioGoogle.credential
+                    mensagem: mensagem
                 })
             }
         );
 
-        const dados = await resposta.json();
+        const dados =
+            await resposta.json();
 
         if (!resposta.ok) {
-            alert(dados.erro || "Erro.");
+            alert(
+                dados.erro ||
+                "Erro ao enviar mensagem."
+            );
+
             return;
         }
 
         input.value = "";
 
-        carregarMensagem();
+        carregarLista();
 
     } catch (erro) {
-        alert("Erro ao conectar ao servidor.");
+        console.error(erro);
+
+        alert(
+            "Erro ao conectar ao servidor."
+        );
     }
 }
 
 
 // ============================================================
-// ADMIN — BLOQUEAR NOME
+// ADMIN — BLOQUEAR
 // ============================================================
 
 async function bloquearNome() {
     const input =
-        document.getElementById("admin-bloqueio");
+        document.getElementById(
+            "admin-bloqueio"
+        );
 
-    const nome = input.value.trim();
+    const nome =
+        input.value.trim();
 
     if (!nome) {
         return;
@@ -421,30 +491,99 @@ async function bloquearNome() {
             {
                 method: "POST",
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers:
+                    headersAutenticados(),
 
                 body: JSON.stringify({
-                    nome: nome,
-                    credential: usuarioGoogle.credential
+                    nome: nome
                 })
             }
         );
 
-        const dados = await resposta.json();
+        const dados =
+            await resposta.json();
 
         if (!resposta.ok) {
-            alert(dados.erro || "Erro.");
+            alert(
+                dados.erro ||
+                "Erro ao bloquear."
+            );
+
             return;
         }
 
         input.value = "";
 
-        alert("Nome bloqueado!");
+        alert(
+            "Nome bloqueado com sucesso!"
+        );
 
     } catch (erro) {
-        alert("Erro ao conectar ao servidor.");
+        console.error(erro);
+
+        alert(
+            "Erro ao conectar ao servidor."
+        );
+    }
+}
+
+
+// ============================================================
+// ADMIN — DESBLOQUEAR
+// ============================================================
+
+async function desbloquearNome() {
+    const input =
+        document.getElementById(
+            "admin-desbloqueio"
+        );
+
+    const nome =
+        input.value.trim();
+
+    if (!nome) {
+        return;
+    }
+
+    try {
+        const resposta = await fetch(
+            API + "/api/admin/desbloquear",
+            {
+                method: "POST",
+
+                headers:
+                    headersAutenticados(),
+
+                body: JSON.stringify({
+                    nome: nome
+                })
+            }
+        );
+
+        const dados =
+            await resposta.json();
+
+        if (!resposta.ok) {
+            alert(
+                dados.erro ||
+                "Erro ao desbloquear."
+            );
+
+            return;
+        }
+
+        input.value = "";
+
+        alert(
+            "Nome desbloqueado!"
+        );
+
+    } catch (erro) {
+        console.error(erro);
+
+        alert(
+            "Erro ao conectar ao servidor."
+        );
     }
 }
 
@@ -455,15 +594,22 @@ async function bloquearNome() {
 
 async function excluirNumero() {
     const input =
-        document.getElementById("admin-excluir");
+        document.getElementById(
+            "admin-excluir"
+        );
 
-    const numero = Number(input.value);
+    const numero =
+        Number(input.value);
 
     if (
         !Number.isInteger(numero) ||
         numero < 0 ||
         numero > 100
     ) {
+        alert(
+            "Número inválido."
+        );
+
         return;
     }
 
@@ -473,32 +619,41 @@ async function excluirNumero() {
             {
                 method: "POST",
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers:
+                    headersAutenticados(),
 
                 body: JSON.stringify({
-                    numero: numero,
-                    credential: usuarioGoogle.credential
+                    numero: numero
                 })
             }
         );
 
-        const dados = await resposta.json();
+        const dados =
+            await resposta.json();
 
         if (!resposta.ok) {
-            alert(dados.erro || "Erro.");
+            alert(
+                dados.erro ||
+                "Erro ao excluir."
+            );
+
             return;
         }
 
         input.value = "";
 
+        alert(
+            "Número excluído!"
+        );
+
         carregarLista();
 
-        alert("Número excluído!");
-
     } catch (erro) {
-        alert("Erro ao conectar ao servidor.");
+        console.error(erro);
+
+        alert(
+            "Erro ao conectar ao servidor."
+        );
     }
 }
 
@@ -507,16 +662,54 @@ async function excluirNumero() {
 // INICIALIZAÇÃO
 // ============================================================
 
-carregarGoogle();
-carregarLista();
-carregarMensagem();
+function iniciarInterface() {
+    const container =
+        document.querySelector(
+            ".container"
+        );
 
-setInterval(
-    carregarLista,
-    5000
-);
+    const login =
+        document.createElement("div");
 
-setInterval(
-    carregarMensagem,
-    5000
-);
+    login.id =
+        "login-google";
+
+    container.insertBefore(
+        login,
+        document.querySelector(
+            ".formulario"
+        )
+    );
+
+    const info =
+        document.createElement("p");
+
+    info.id =
+        "usuario-info";
+
+    info.textContent =
+        "Entre com sua conta Google.";
+
+    container.insertBefore(
+        info,
+        document.querySelector(
+            ".formulario"
+        )
+    );
+
+    document.querySelector(
+        ".formulario"
+    ).style.display = "none";
+
+    carregarLista();
+
+    setInterval(
+        carregarLista,
+        5000
+    );
+
+    iniciarGoogle();
+}
+
+
+iniciarInterface();
